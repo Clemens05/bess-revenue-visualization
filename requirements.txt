@@ -2,3 +2,4 @@ blessed==1.20.0
 editor==1.6.6
 inquirer==3.4.0
 PuLP==2.9.0
+fastapi==0.95.0
