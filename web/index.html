@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BESS Revenue Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@2.3.0/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.1.0/dist/chartjs-adapter-luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.0/dist/chartjs-plugin-zoom.min.js"></script>
+  </head>
+  <body class="bg-gradient-to-r from-blue-50 to-blue-100 min-h-screen">
+    <div class="container mx-auto px-6 py-12">
+      <header class="flex justify-between items-center mb-16">
+        <h1 class="text-4xl font-bold text-blue-900">
+          BESS Revenue Visualization
+        </h1>
+        <a href="https://savvytec.de" target="_blank">
+          <img src="logo-old.png" alt="TEC Logo" class="h-10" />
+        </a>
+      </header>
+
+      <!-- Loading Indicator -->
+      <div
+        id="loadingIndicator"
+        class="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-50 hidden"
+      >
+        <div class="loader">
+          <svg
+            class="animate-spin h-12 w-12 text-white"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            ></circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+            ></path>
+          </svg>
+        </div>
+      </div>
+
+      <div class="bg-white shadow-lg rounded-lg p-8 mb-12">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="col-span-1">
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Market</label
+            >
+            <select
+              id="marketSelect"
+              class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select a market...</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">
+              Storage Configuration
+            </h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">Name</label>
+                <input
+                  type="text"
+                  id="inputConfigName"
+                  class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Storage Name"
+                  value="Custom Storage"
+                />
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1"
+                  >Power Limit (kW)</label
+                >
+                <input
+                  type="number"
+                  id="inputConfigPowerLimit"
+                  class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Power Limit"
+                  value="1000"
+                />
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1"
+                  >Capacity (kWh)</label
+                >
+                <input
+                  type="number"
+                  id="inputConfigCapacity"
+                  class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Capacity"
+                  value="2000"
+                />
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1"
+                  >Initial SoC (kWh)</label
+                >
+                <input
+                  type="number"
+                  id="inputConfigInitialSoc"
+                  class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Initial SoC"
+                  value="0"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-8 text-center">
+          <button
+            onclick="calculateRevenue()"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md transition duration-200 shadow-md"
+          >
+            Calculate Revenue
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+        <div class="bg-white shadow-lg rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            Configuration Summary
+          </h3>
+          <div class="space-y-2">
+            <p class="flex justify-between">
+              <span class="text-gray-600">Name:</span>
+              <span id="displayConfigName" class="font-medium">-</span>
+            </p>
+            <p class="flex justify-between">
+              <span class="text-gray-600">Power Limit:</span>
+              <span class="font-medium"
+                ><span id="displayConfigPower">-</span> kW</span
+              >
+            </p>
+            <p class="flex justify-between">
+              <span class="text-gray-600">Capacity:</span>
+              <span class="font-medium"
+                ><span id="displayConfigCapacity">-</span> kWh</span
+              >
+            </p>
+            <p class="flex justify-between">
+              <span class="text-gray-600">Initial SoC:</span>
+              <span class="font-medium"
+                ><span id="displayConfigInitialSoc">-</span> kWh</span
+              >
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-white shadow-lg rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Statistics</h3>
+          <div class="space-y-2">
+            <p class="flex justify-between">
+              <span class="text-gray-600">Total Cycles:</span>
+              <span id="totalCycles" class="font-medium">-</span>
+            </p>
+            <p class="flex justify-between">
+              <span class="text-gray-600">Revenue:</span>
+              <span class="font-medium"><span id="revenue">-</span> €</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white shadow-lg rounded-lg p-6 mb-12">
+        <div class="chart-container" style="position: relative; height: 400px">
+          <canvas id="myChart"></canvas>
+        </div>
+      </div>
+
+      <div class="text-center">
+        <button
+          onclick="resetZoom()"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md transition duration-200 shadow-md"
+        >
+          Reset Zoom
+        </button>
+      </div>
+    </div>
+
+    <script>
+      let chart = null;
+
+      // Load markets when page loads
+      window.onload = async function () {
+        await loadMarkets();
+      };
+
+      async function loadMarkets() {
+        try {
+          const response = await fetch("http://localhost:8000/v1/markets");
+          const markets = await response.json();
+
+          const select = document.getElementById("marketSelect");
+          select.innerHTML = '<option value="">Select a market...</option>';
+
+          markets.forEach((market) => {
+            const option = document.createElement("option");
+            option.value = market.id;
+            option.textContent = `${market.name} ${market.year} (${market.interval}min)`;
+            select.appendChild(option);
+          });
+        } catch (error) {
+          console.error("Error loading markets:", error);
+        }
+      }
+
+      async function calculateRevenue() {
+        const marketId = document.getElementById("marketSelect").value;
+
+        if (!marketId) {
+          alert("Please select a market");
+          return;
+        }
+
+        // Show loading indicator
+        document.getElementById("loadingIndicator").classList.remove("hidden");
+
+        // Get configuration from input fields
+        const config = {
+          name: document.getElementById("inputConfigName").value,
+          power_limit: parseFloat(
+            document.getElementById("inputConfigPowerLimit").value
+          ),
+          capacity: parseFloat(
+            document.getElementById("inputConfigCapacity").value
+          ),
+          initial_soc: parseFloat(
+            document.getElementById("inputConfigInitialSoc").value
+          ),
+        };
+
+        // Validate configuration
+        if (
+          !config.name ||
+          isNaN(config.power_limit) ||
+          isNaN(config.capacity) ||
+          isNaN(config.initial_soc)
+        ) {
+          alert("Please fill in all configuration fields with valid numbers");
+          document.getElementById("loadingIndicator").classList.add("hidden");
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `http://localhost:8000/v1/calculate-revenue/${marketId}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(config),
+            }
+          );
+
+          const data = await response.json();
+          visualizeData(data);
+          updateStats(data, config);
+        } catch (error) {
+          console.error("Error calculating revenue:", error);
+          alert("Error calculating revenue. Please try again.");
+        } finally {
+          // Hide loading indicator
+          document.getElementById("loadingIndicator").classList.add("hidden");
+        }
+      }
+
+      function updateStats(data, config) {
+        document.getElementById("totalCycles").textContent =
+          data.total_cycles.toLocaleString();
+        document.getElementById("revenue").textContent = parseFloat(
+          data.revenue
+        ).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+
+        // Update configuration display
+        document.getElementById("displayConfigName").textContent = config.name;
+        document.getElementById("displayConfigPower").textContent =
+          config.power_limit.toLocaleString();
+        document.getElementById("displayConfigCapacity").textContent =
+          config.capacity.toLocaleString();
+        document.getElementById("displayConfigInitialSoc").textContent =
+          config.initial_soc.toLocaleString();
+      }
+
+      function visualizeData(data) {
+        const timestamps = data.data.map((item) => new Date(item.date));
+        const socValues = data.data.map((item) => item.SoC_kWh);
+        const netFlowValues = data.data.map((item) => item.net_flow_kWh);
+        const actions = data.data.map((item) => item.action);
+        const prices = data.data.map((item) => item.price || 0);
+
+        const cumulativeRevenue = [];
+        let runningTotal = 0;
+        data.data.forEach((item) => {
+          const price = item.price || 0;
+          const revenue = -item.net_flow_kWh * price;
+          runningTotal += revenue;
+          cumulativeRevenue.push(runningTotal);
+        });
+
+        const buyPoints = data.data.map((item, index) =>
+          item.action === "BUY" ? item.price : null
+        );
+        const sellPoints = data.data.map((item, index) =>
+          item.action === "SELL" ? item.price : null
+        );
+
+        const ctx = document.getElementById("myChart").getContext("2d");
+
+        if (chart) {
+          chart.destroy();
+        }
+
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: timestamps,
+            datasets: [
+              {
+                label: "State of Charge (kWh)",
+                data: socValues,
+                borderColor: "rgb(75, 192, 192)",
+                tension: 0.1,
+                yAxisID: "y",
+              },
+              {
+                label: "Net Flow (kWh)",
+                data: netFlowValues,
+                borderColor: "rgb(255, 99, 132)",
+                tension: 0.1,
+                yAxisID: "y",
+              },
+              {
+                label: "Energy Price (kWh/€)",
+                data: prices,
+                borderColor: "rgb(255, 159, 64)",
+                tension: 0.1,
+                yAxisID: "y1",
+                borderDash: [5, 5],
+                pointRadius: 0,
+              },
+              {
+                label: "BUY Actions",
+                data: buyPoints,
+                borderColor: "rgb(75, 192, 75)",
+                backgroundColor: "rgb(75, 192, 75)",
+                yAxisID: "y1",
+                pointStyle: "triangle",
+                pointRadius: 6,
+                showLine: false,
+              },
+              {
+                label: "SELL Actions",
+                data: sellPoints,
+                borderColor: "rgb(255, 99, 132)",
+                backgroundColor: "rgb(255, 99, 132)",
+                yAxisID: "y1",
+                pointStyle: "triangle",
+                pointRadius: 6,
+                rotation: 180,
+                showLine: false,
+              },
+              {
+                label: "Cumulative Revenue (€)",
+                data: cumulativeRevenue,
+                borderColor: "rgb(153, 102, 255)",
+                tension: 0.1,
+                yAxisID: "y2",
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              intersect: false,
+              mode: "index",
+            },
+            plugins: {
+              zoom: {
+                pan: {
+                  enabled: true,
+                  mode: "x",
+                },
+                zoom: {
+                  wheel: {
+                    enabled: true,
+                  },
+                  pinch: {
+                    enabled: true,
+                  },
+                  mode: "x",
+                },
+              },
+              tooltip: {
+                mode: "index",
+                intersect: false,
+                position: "nearest",
+                callbacks: {
+                  afterBody: function (context) {
+                    const index = context[0].dataIndex;
+                    const price = prices[index];
+                    return [];
+                  },
+                },
+              },
+              crosshair: {
+                line: {
+                  color: "#666",
+                  width: 1,
+                  dashPattern: [5, 5],
+                },
+                sync: {
+                  enabled: true,
+                  group: 1,
+                },
+                zoom: {
+                  enabled: true,
+                },
+              },
+              legend: {
+                onClick: function (e, legendItem, legend) {
+                  const index = legendItem.datasetIndex;
+                  const ci = legend.chart;
+
+                  if (index === 3 || index === 4) {
+                    const priceLineVisible = !ci.isDatasetVisible(2);
+                    ci.setDatasetVisibility(2, priceLineVisible);
+                    ci.setDatasetVisibility(3, priceLineVisible);
+                    ci.setDatasetVisibility(4, priceLineVisible);
+                  } else {
+                    ci.setDatasetVisibility(index, !ci.isDatasetVisible(index));
+                  }
+                  ci.update();
+                },
+              },
+            },
+            scales: {
+              x: {
+                type: "time",
+                time: {
+                  unit: "hour",
+                },
+                title: {
+                  display: true,
+                  text: "Time",
+                },
+              },
+              y: {
+                position: "left",
+                title: {
+                  display: true,
+                  text: "kWh",
+                },
+              },
+              y1: {
+                position: "right",
+                title: {
+                  display: true,
+                  text: "Price (kWh/€)",
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
+              },
+              y2: {
+                position: "right",
+                title: {
+                  display: true,
+                  text: "Revenue (€)",
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
+              },
+            },
+          },
+        });
+
+        const verticalLinePlugin = {
+          id: "verticalLine",
+          beforeDraw: (chart) => {
+            if (chart.tooltip._active && chart.tooltip._active.length) {
+              const activePoint = chart.tooltip._active[0];
+              const ctx = chart.ctx;
+              const x = activePoint.element.x;
+              const topY = chart.scales.y.top;
+              const bottomY = chart.scales.y.bottom;
+
+              ctx.save();
+              ctx.beginPath();
+              ctx.moveTo(x, topY);
+              ctx.lineTo(x, bottomY);
+              ctx.lineWidth = 1;
+              ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+              ctx.stroke();
+              ctx.restore();
+            }
+          },
+        };
+
+        Chart.register(verticalLinePlugin);
+      }
+
+      function resetZoom() {
+        if (chart) {
+          chart.resetZoom();
+        }
+      }
+    </script>
+  </body>
+</html>
