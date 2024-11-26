@@ -7,7 +7,6 @@ from optimize_storage import optimize_storage, InputData, DataPoint
 from fastapi.middleware.cors import CORSMiddleware
 from convert_spot_data import convert_spot_data, SpotData
 
-
 app = FastAPI()
 
 app.add_middleware(
@@ -112,3 +111,4 @@ async def calculate_revenue(market_id: str, config: StorageConfig):
     except Exception as e:
         print(e.with_traceback(None))
         raise HTTPException(status_code=500, detail=str(e))
+
