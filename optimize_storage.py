@@ -4,6 +4,7 @@ import json
 import pulp
 import math
 
+
 @dataclass
 class DataPoint:
     date: str
