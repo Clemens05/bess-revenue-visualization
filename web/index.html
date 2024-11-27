@@ -201,7 +201,7 @@
       async function loadMarkets() {
         try {
           const response = await fetch(
-            "https://bess-revenue-visualization.vercel.app/v1/markets"
+            "https://bess-revenue-visualization.onrender.com/v1/markets"
           );
           const markets = await response.json();
 
@@ -258,7 +258,7 @@
 
         try {
           const response = await fetch(
-            `https://bess-revenue-visualization.vercel.app/v1/calculate-revenue/${marketId}`,
+            `https://bess-revenue-visualization.onrender.com/v1/calculate-revenue/${marketId}`,
             {
               method: "POST",
               headers: {
